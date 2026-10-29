@@ -65,7 +65,7 @@ class ProposalRepository(
                         proposedContent = obj.optString("proposedContent", ""),
                         isSelected = obj.optBoolean("isSelected", true),
                         hasConflict = obj.optBoolean("hasConflict", false),
-                        conflictReason = obj.optString("conflictReason", null)
+                        conflictReason = if (obj.has("conflictReason") && !obj.isNull("conflictReason")) obj.getString("conflictReason") else null
                     )
                 )
             }

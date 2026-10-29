@@ -77,6 +77,9 @@ fun GitScreen(
     // Commit & Push Confirmation Dialog State
     var showPushApprovalDialog by remember { mutableStateOf(false) }
     var commitMessage by remember { mutableStateOf("Update via Code0 Studio") }
+    var pushRepoOwner by remember(githubUsername) { mutableStateOf(githubUsername ?: "") }
+    var pushRepoName by remember(activeProject) { mutableStateOf(activeProject?.name?.replace(" ", "-") ?: "") }
+    var pushBranch by remember(gitStatus) { mutableStateOf(gitStatus?.branch ?: "main") }
 
     Column(modifier = modifier.fillMaxSize().padding(12.dp)) {
         // GitHub Account Header
@@ -393,34 +396,57 @@ fun GitScreen(
         )
     }
 
-    // Explicit Push Approval Dialog (Section 7 in prompt!)
+    // Explicit Push Approval Dialog
     if (showPushApprovalDialog) {
+        var targetOwner by remember { mutableStateOf(githubUsername ?: "") }
+        var targetRepo by remember { mutableStateOf(activeProject?.name?.replace(" ", "-") ?: "Code0") }
+        var targetBranch by remember { mutableStateOf(gitStatus?.branch ?: "main") }
+
         AlertDialog(
             onDismissRequest = { showPushApprovalDialog = false },
             title = { Text("Confirm GitHub Push") },
             text = {
                 Column {
                     Text(
-                        text = "You are about to push changes to GitHub. Please verify the target and files before proceeding:",
-                        fontSize = 12.sp
+                        text = "Verify target repository, branch, and commit message before pushing:",
+                        fontSize = 12.sp,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
                     )
                     Spacer(modifier = Modifier.height(8.dp))
-                    Text(
-                        text = "Target Branch: ${gitStatus?.branch ?: "main"}",
-                        fontWeight = FontWeight.Bold,
-                        fontSize = 13.sp,
-                        color = MaterialTheme.colorScheme.primary
+                    OutlinedTextField(
+                        value = targetOwner,
+                        onValueChange = { targetOwner = it },
+                        label = { Text("GitHub Owner / Username") },
+                        singleLine = true,
+                        modifier = Modifier.fillMaxWidth().testTag("push_owner_input")
                     )
+                    Spacer(modifier = Modifier.height(6.dp))
+                    OutlinedTextField(
+                        value = targetRepo,
+                        onValueChange = { targetRepo = it },
+                        label = { Text("Repository Name") },
+                        singleLine = true,
+                        modifier = Modifier.fillMaxWidth().testTag("push_repo_input")
+                    )
+                    Spacer(modifier = Modifier.height(6.dp))
+                    OutlinedTextField(
+                        value = targetBranch,
+                        onValueChange = { targetBranch = it },
+                        label = { Text("Target Branch") },
+                        singleLine = true,
+                        modifier = Modifier.fillMaxWidth().testTag("push_branch_input")
+                    )
+                    Spacer(modifier = Modifier.height(6.dp))
                     Text(
-                        text = "Commit Message: \"$commitMessage\"",
-                        fontSize = 12.sp,
+                        text = "Commit: \"$commitMessage\"",
+                        fontSize = 11.sp,
                         fontFamily = FontFamily.Monospace,
-                        modifier = Modifier.padding(vertical = 4.dp)
+                        color = MaterialTheme.colorScheme.outline
                     )
                     Text(
                         text = "Files to push: ${gitStatus?.untrackedFiles?.size ?: 0} file(s)",
-                        fontSize = 12.sp,
-                        color = MaterialTheme.colorScheme.outline
+                        fontSize = 11.sp,
+                        color = MaterialTheme.colorScheme.primary
                     )
                 }
             },
@@ -428,9 +454,10 @@ fun GitScreen(
                 Button(
                     onClick = {
                         showPushApprovalDialog = false
-                        val owner = githubUsername ?: "user"
-                        val repoName = activeProject?.name ?: "repo"
-                        onPushCommit(owner, repoName, gitStatus?.branch ?: "main", commitMessage, emptyList())
+                        val finalOwner = targetOwner.trim().ifBlank { githubUsername ?: "user" }
+                        val finalRepo = targetRepo.trim().ifBlank { activeProject?.name ?: "repo" }
+                        val finalBranch = targetBranch.trim().ifBlank { "main" }
+                        onPushCommit(finalOwner, finalRepo, finalBranch, commitMessage, emptyList())
                     },
                     modifier = Modifier.testTag("confirm_push_approval_btn")
                 ) {

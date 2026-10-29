@@ -783,10 +783,38 @@ class Code0ViewModel(application: Application) : AndroidViewModel(application) {
         commitMessage: String,
         filesToPush: List<Pair<String, String>>
     ) {
-        val token = githubToken.value ?: return
+        val token = githubToken.value
+        if (token.isNullOrBlank()) {
+            _statusMessage.value = "GitHub Personal Access Token is required to push. Please connect in Git tab."
+            return
+        }
         viewModelScope.launch {
             _isGitHubLoading.value = true
-            val res = gitHubRepo.pushCommitToGitHub(owner, repo, branch, token, commitMessage, filesToPush)
+            val files = if (filesToPush.isNotEmpty()) {
+                filesToPush
+            } else {
+                val proj = _activeProject.value
+                if (proj != null) {
+                    val root = File(proj.directoryPath)
+                    if (root.exists()) {
+                        root.walkTopDown()
+                            .filter { it.isFile && !it.path.contains("/.git/") && !it.path.contains("/build/") && !it.path.contains("/.gradle/") }
+                            .map { file ->
+                                val rel = file.relativeTo(root).path.replace('\\', '/')
+                                rel to file.readText()
+                            }
+                            .toList()
+                    } else emptyList()
+                } else emptyList()
+            }
+
+            if (files.isEmpty()) {
+                _statusMessage.value = "No files found to push in active project"
+                _isGitHubLoading.value = false
+                return@launch
+            }
+
+            val res = gitHubRepo.pushCommitToGitHub(owner, repo, branch, token, commitMessage, files)
             res.onSuccess { msg ->
                 _statusMessage.value = msg
                 refreshGitStatus()

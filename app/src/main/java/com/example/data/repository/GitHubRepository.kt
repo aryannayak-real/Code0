@@ -253,7 +253,10 @@ class GitHubRepository(
 
         try {
             var successCount = 0
-            for ((path, content) in filesToPush) {
+            for ((rawPath, content) in filesToPush) {
+                val path = rawPath.trimStart('/')
+                if (path.isBlank()) continue
+
                 // Fetch file SHA if it exists
                 var existingSha: String? = null
                 val checkReq = Request.Builder()
@@ -266,7 +269,8 @@ class GitHubRepository(
                 client.newCall(checkReq).execute().use { checkResp ->
                     if (checkResp.isSuccessful) {
                         val body = checkResp.body?.string() ?: "{}"
-                        existingSha = JSONObject(body).optString("sha", null)
+                        val obj = JSONObject(body)
+                        existingSha = if (obj.has("sha") && !obj.isNull("sha")) obj.getString("sha") else null
                     }
                 }
 
@@ -300,8 +304,14 @@ class GitHubRepository(
                     if (putResp.isSuccessful) {
                         successCount++
                     } else {
+                        val errBody = putResp.body?.string() ?: ""
+                        val errMsg = try {
+                            JSONObject(errBody).optString("message", putResp.message)
+                        } catch (_: Exception) {
+                            putResp.message
+                        }
                         return@withContext Result.failure(
-                            Exception("Failed pushing $path: HTTP ${putResp.code} (${putResp.message})")
+                            Exception("Failed pushing $path: HTTP ${putResp.code} ($errMsg)")
                         )
                     }
                 }
@@ -318,7 +328,7 @@ class GitHubRepository(
             id = obj.getLong("id"),
             name = obj.getString("name"),
             fullName = obj.getString("full_name"),
-            description = obj.optString("description", null),
+            description = if (obj.has("description") && !obj.isNull("description")) obj.getString("description") else null,
             isPrivate = obj.getBoolean("private"),
             htmlUrl = obj.getString("html_url"),
             defaultBranch = obj.optString("default_branch", "main"),
