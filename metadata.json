@@ -1,0 +1,6 @@
+{
+  "name": "Code0",
+  "description": "Mobile coding workspace for Android with source editor, GitHub integration, AI Assistant, multi-file change review, and reproducible builds.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
